@@ -4,22 +4,18 @@ Description: CSYE6225-INFRA VPC with public 3 subnets
 
 Parameters:
   VpcCIDRBlock:
-    Default: "10.0.0.0/16"
     Description: "CIDR BLOCK for this VPC"
     Type: String
 
   PublicSubnet1CIDR:
-    Default: "10.0.0.0/24"
     Description: "Enter IP range for public subnet 1"
     Type: String
 
   PublicSubnet2CIDR:
-    Default: "10.0.1.0/24"
     Description: "Enter IP range for public subnet 2"
     Type: String
 
   PublicSubnet3CIDR:
-    Default: "10.0.2.0/24"
     Description: "Enter IP range for public subnet 3"
     Type: String
 
