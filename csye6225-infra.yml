@@ -4,19 +4,36 @@ Description: CSYE6225-INFRA VPC with public 3 subnets
 
 Parameters:
   VpcCIDRBlock:
+    Default: 10.0.0.0/16
     Description: "CIDR BLOCK for this VPC"
     Type: String
 
   PublicSubnet1CIDR:
+    Default: 10.0.0.0/24
     Description: "Enter IP range for public subnet 1"
     Type: String
 
   PublicSubnet2CIDR:
+    Default: 10.0.1.0/24
     Description: "Enter IP range for public subnet 2"
     Type: String
 
   PublicSubnet3CIDR:
+    Default: 10.0.2.0/24
     Description: "Enter IP range for public subnet 3"
+    Type: String
+
+  AMIImage:
+    Description: "Enter Custom AMI Id"
+    Type: String
+
+  SSHLocation:
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 0.0.0.0/0
+    Description: The IP address range that can be used to access the web server using SSH.
+    MaxLength: '18'
+    MinLength: '9'
     Type: String
 
 Resources:
@@ -110,8 +127,50 @@ Resources:
    Properties: 
      RouteTableId: !Ref myRouteTable
      SubnetId: !Ref PublicSubnet3
-
-
+  
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP/HTTPS (80/443) and Custom access (8080) port
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 
+            Ref: SSHLocation
+      Tags:
+      - Key: Name
+        Value: Application Security Group
+      VpcId: 
+        Ref: myVPC
+  
+  MyEC2Instance: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: 
+        Ref : AMIImage
+      KeyName: mrigesh
+      InstanceType: "t2.micro"
+      NetworkInterfaces: 
+      - AssociatePublicIpAddress: "true"
+        DeviceIndex: "0"
+        GroupSet: 
+          - Ref: ApplicationSecurityGroup
+        SubnetId: 
+          Ref: PublicSubnet1      
+        
 Outputs:
   myVPC:
     Description: The VPC ID
