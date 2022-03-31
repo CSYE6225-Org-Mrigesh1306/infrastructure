@@ -1,6 +1,5 @@
-# Assignment-6 :IAM Users, Roles & Policies
-
-### To Create LoadBalancer, Autoscaling Application Stack & Route53 with Cloudformation
+# Assignment-7 :CI/CD for Web Application
+### To Create CloudFormation Template with CodeDeploy, IAM Roles & Policies for CI/CD User and 
 
 
 **Configure AWS profile and Region on AWS-CLI**
@@ -17,8 +16,6 @@
 **Delete Stack**
 - aws cloudformation delete-stack --stack-name demo-stack
 
-**Load Testing on WebServer**
-- while true; do curl http://demo.mrigeshdasgupta.me/healthz/ ; done
 
 
 
