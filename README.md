@@ -1,5 +1,5 @@
-# Assignment-7 :CI/CD for Web Application
-### To Create CloudFormation Template with CodeDeploy, IAM Roles & Policies for CI/CD User and 
+# Assignment-8 :Application Logging & Metrics
+### To Create CloudFormation Template with Cloudwatch  
 
 
 **Configure AWS profile and Region on AWS-CLI**

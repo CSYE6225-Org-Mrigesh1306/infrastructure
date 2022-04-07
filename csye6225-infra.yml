@@ -295,11 +295,13 @@ Resources:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
+          
           SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          CidrIp: 0.0.0.0/0
+          #SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
       Tags:
       - Key: Name
         Value: Application Security Group
@@ -600,6 +602,37 @@ Resources:
         ]
       Users: 
         - "ghactions-app"
+
+  cloudwatchAgentPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "EC2CloudWatchPolicy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudwatch:PutMetricData'
+              - 'ec2:DescribeTags'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogStreams'
+              - 'logs:DescribeLogGroups'
+              - 'logs:CreateLogStream'
+              - 'logs:CreateLogGroup'
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - 'ssm:GetParameter'
+              - 'ssm:PutParameter'
+            Resource: "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
+      Roles:
+        - Ref: CodeDeployEC2ServiceRole
+
+  loggroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: csye6225
+      RetentionInDays: 7
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
