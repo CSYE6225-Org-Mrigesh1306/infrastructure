@@ -1,6 +1,15 @@
-# Assignment-8 :Application Logging & Metrics
-### To Create CloudFormation Template with Cloudwatch  
+# Assignment-10 :Secure Application Endpoints
+ 
 
+## Encrypted EBS Volumes
+* All EC2 instances must now be launched with encrypted EBS volumes.
+* EBS volumes must be encrypted with Customer managed key created as part of your CloudFormation template.
+
+## Encrypted RDS Instances
+* RDS instances launched should be encrypted with (a separate) Customer managed key created as part of your CloudFormation template. The encryption key must not be shared with other resources.
+
+## Command to import Certificate
+* aws acm import-certificate --certificate fileb://demo_mrigeshdasgupta_me.crt --certificate-chain fileb://demo_mrigeshdasgupta_me.ca-bundle --private-key fileb://demo.pem --profile=demo
 
 **Configure AWS profile and Region on AWS-CLI**
 
