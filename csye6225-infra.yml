@@ -408,6 +408,8 @@ Resources:
       AllocatedStorage: !Ref DBAllocatedStorage
       DBInstanceClass: !Ref DBInstanceClass
       DBName: !Ref DBName
+      KmsKeyId: !Ref RDSKey
+      StorageEncrypted: true
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBSubnetGroupName: !Ref RDSDBSubnetGroup
@@ -642,17 +644,65 @@ Resources:
       Roles:
       - Ref: CodeDeployEC2ServiceRole
 
-  InstLaunchTemplate:
-    Type: AWS::AutoScaling::LaunchConfiguration
+  # InstLaunchTemplate:
+  #   Type: AWS::AutoScaling::LaunchConfiguration
+  #   Properties:
+  #       ImageId: 
+  #         Ref : AMIImage
+  #       InstanceType: t2.micro
+  #       KeyName: mrigesh
+  #       IamInstanceProfile: !Ref InstanceProfile
+  #       AssociatePublicIpAddress: "true"
+  #       SecurityGroups:
+  #       - !Ref ApplicationSecurityGroup     
+  #       UserData:
+  #         Fn::Base64:
+  #           !Sub |
+  #           #!/bin/bash
+  #           echo export DB_CONNECT="${MyDB.Endpoint.Address}" >> /etc/profile
+  #           echo export MYSQL_USER="${DBUsername}" >> /etc/profile
+  #           echo export MYSQL_PASSWORD="${DBPassword}" >> /etc/profile
+  #           echo export S3BUCKET="${S3Bucket}" >> /etc/profile
+  #           echo export MYSQL_DATABASE="csye62251" >> /etc/profile
+  #           echo export AWS_REGION="us-east-1" >> /etc/profile
+  #           echo Environment=\"DB_CONNECT=${MyDB.Endpoint.Address}\" >> /tmp/webapp.service
+  #           echo Environment=\"MYSQL_USER=${DBUsername}\" >> /tmp/webapp.service
+  #           echo Environment=\"MYSQL_PASSWORD=${DBPassword}\" >> /tmp/webapp.service
+  #           echo Environment=\"S3BUCKET=${S3Bucket}\" >> /tmp/webapp.service
+  #           echo Environment=\"AWS_REGION=us-east-1\" >> /tmp/webapp.service
+  #           echo Environment=\"MYSQL_DATABASE=csye62251\" >> /tmp/webapp.service
+  #           sudo cp /tmp/webapp.service /etc/systemd/system/
+  #           sudo systemctl daemon-reload
+  #           sudo systemctl enable webapp.service
+  #           sudo systemctl start webapp.service
+  #           sudo systemctl status webapp.service
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-EC2-instance'
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - Ebs:
+              VolumeSize: 20
+              VolumeType: gp2
+              DeleteOnTermination: true
+              Encrypted: true
+              KmsKeyId: !Ref EBSKey
+              DeleteOnTermination: true
+            DeviceName: /dev/xvda
         ImageId: 
           Ref : AMIImage
         InstanceType: t2.micro
         KeyName: mrigesh
-        IamInstanceProfile: !Ref InstanceProfile
-        AssociatePublicIpAddress: "true"
-        SecurityGroups:
-        - !Ref ApplicationSecurityGroup     
+        IamInstanceProfile: 
+          Arn: !GetAtt [InstanceProfile, Arn]
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            Groups: 
+              - !Ref ApplicationSecurityGroup
+            DeleteOnTermination: true     
         UserData:
           Fn::Base64:
             !Sub |
@@ -676,6 +726,35 @@ Resources:
             sudo systemctl status webapp.service
 
 
+  # ASGWebApp:
+  #   Type: AWS::AutoScaling::AutoScalingGroup
+  #   Properties:
+  #     AutoScalingGroupName: !Sub ${AWS::StackName}-asg
+  #     AvailabilityZones:
+  #       - us-east-1a
+  #       - us-east-1b
+  #       - us-east-1c
+  #     Cooldown: 60
+  #     HealthCheckGracePeriod: 90
+  #     HealthCheckType: EC2
+  #     LaunchConfigurationName: !Ref InstLaunchTemplate
+  #     MaxSize: '5'
+  #     MinSize: '1'
+  #     DesiredCapacity: '1'
+  #     Tags:
+  #       - Key: Application
+  #         Value: WebApp
+  #         PropagateAtLaunch: "true"
+  #       - Key: Name
+  #         Value: !Sub ${AWS::StackName}-asg
+  #         PropagateAtLaunch: "true"
+  #     TargetGroupARNs:
+  #       - !Ref myTargetGroup
+  #     VPCZoneIdentifier:
+  #       - Ref: PublicSubnet1
+  #       - Ref: PublicSubnet2
+  #       - Ref: PublicSubnet3
+
   ASGWebApp:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -687,7 +766,10 @@ Resources:
       Cooldown: 60
       HealthCheckGracePeriod: 90
       HealthCheckType: EC2
-      LaunchConfigurationName: !Ref InstLaunchTemplate
+      # LaunchConfigurationName: !Ref InstLaunchTemplate
+      LaunchTemplate: 
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
       MaxSize: '5'
       MinSize: '1'
       DesiredCapacity: '1'
@@ -814,8 +896,10 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref myTargetGroup
       LoadBalancerArn: !Ref webAppLoadBalancer
-      Port: 80
-      Protocol: HTTP
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: arn:aws:acm:us-east-1:170773480295:certificate/a26b0d95-3f1f-4a09-ad8e-9a04f8957efd      
 
   myDNSServer:
     Type: AWS::Route53::RecordSetGroup
@@ -1135,6 +1219,117 @@ Resources:
       PolicyName: Github-Lambda-Updates
       Users:
         - ghactions-lambda
+
+  RDSKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Description: Symmetric KMS key
+      EnableKeyRotation: true
+      PendingWindowInDays: 20
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: sym-ebs-key
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: 'arn:aws:iam::170773480295:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: 'arn:aws:iam::170773480295:root'
+            Action:
+              - 'kms:Create*'
+              - 'kms:Describe*'
+              - 'kms:Enable*'
+              - 'kms:List*'
+              - 'kms:Put*'
+              - 'kms:Update*'
+              - 'kms:Revoke*'
+              - 'kms:Disable*'
+              - 'kms:Get*'
+              - 'kms:Delete*'
+              - 'kms:ScheduleKeyDeletion'
+              - 'kms:CancelKeyDeletion'
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: 'arn:aws:iam::170773480295:root'
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+
+  RDSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/rdsKey
+      TargetKeyId:
+        Ref: RDSKey
+
+  EBSKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Description: Symmetric KMS key
+      EnableKeyRotation: true
+      PendingWindowInDays: 20
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: sym-ebs-key
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !Sub arn:aws:iam::170773480295:root
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::170773480295:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling
+            Action:
+              - 'kms:Create*'
+              - 'kms:Describe*'
+              - 'kms:Enable*'
+              - 'kms:List*'
+              - 'kms:Put*'
+              - 'kms:Update*'
+              - 'kms:Revoke*'
+              - 'kms:Disable*'
+              - 'kms:Get*'
+              - 'kms:Delete*'
+              - 'kms:ScheduleKeyDeletion'
+              - 'kms:CancelKeyDeletion'
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::170773480295:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+
+  EBSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/ebsKey
+      TargetKeyId:
+        Ref: EBSKey
     
         
 Outputs:
