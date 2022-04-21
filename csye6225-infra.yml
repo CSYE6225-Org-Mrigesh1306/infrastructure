@@ -388,6 +388,8 @@ Resources:
     Type: 'AWS::RDS::DBParameterGroup'
     Properties:
       Description: CloudFormation Sample MySQL Parameter Group
+      Parameters:
+        performance_schema: 1
       Family: mysql8.0
       Tags: 
         - Key: Name
